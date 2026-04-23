@@ -33,9 +33,10 @@ else
         LIBNICK4 = libsqlite3.so
         SONAME   = libsqlite3.so.0
     endif
-    LMDBPATH = /usr/local/lib
-    LMDBINCPATH = /usr/local/include
-    prefix  ?= /usr/local
+    LMDBPATH    ?= /usr/local/lib
+    LMDBINCPATH ?= /usr/local/include
+    PYTHON      ?= python3
+    prefix      ?= /usr/local
     LIBPATH  = $(prefix)/lib
     LIBPATH2 = $(prefix)/lib/litetree
     INCPATH  = $(prefix)/include
@@ -132,40 +133,25 @@ else
 	cd $(PY_HOME)/DLLs && [ ! -f sqlite3-orig.dll ] && mv sqlite3.dll sqlite3-orig.dll || true
 	cp litetree-0.1.dll $(PY_HOME)/DLLs/sqlite3.dll
 	cp $(LMDBPATH)/lmdb.dll $(PY_HOME)/DLLs/lmdb.dll
-	cd test && python -mpip install lmdb
-	cd test && python test.py -v
-	cd test && python test-64bit-commit-ids.py -v
+	cd test && $(PYTHON) test.py -v
+	cd test && $(PYTHON) test-64bit-commit-ids.py -v
 endif
-else	# not Windows
-ifneq ($(shell python -c "import lmdb" 2> /dev/null; echo $$?),0)
-	sudo python -m easy_install cffi
-	cd test && sudo python -m easy_install lmdb
-ifneq ($(shell python -c "import lmdb" 2> /dev/null; echo $$?),0)
-	git clone --depth=1 https://github.com/dw/py-lmdb
-	cd py-lmdb && sudo LMDB_FORCE_CPYTHON=1 python setup.py install
-ifneq ($(shell python -c "import lmdb" 2> /dev/null; echo $$?),0)
-	sudo python -c "import cffi"
-	sudo python -c "import lmdb"
-endif
-endif
-endif
-ifeq ($(OS),OSX)
-ifneq ($(shell python -c "import pysqlite2.dbapi2" 2> /dev/null; echo $$?),0)
+else ifeq ($(OS),OSX)
+ifneq ($(shell $(PYTHON) -c "import pysqlite2.dbapi2" 2> /dev/null; echo $$?),0)
 ifneq ($(shell [ -d $(LIBPATH2) ]; echo $$?),0)
 	@echo "run 'sudo make install' first"
 endif
 	git clone --depth=1 https://github.com/ghaering/pysqlite
 	cd pysqlite && echo "include_dirs=$(INCPATH)" >> setup.cfg
 	cd pysqlite && echo "library_dirs=$(LIBPATH2)" >> setup.cfg
-	cd pysqlite && python setup.py build
-	cd pysqlite && sudo python setup.py install
+	cd pysqlite && $(PYTHON) setup.py build
+	cd pysqlite && sudo $(PYTHON) setup.py install
 endif
-	cd test && python test.py -v
-	cd test && python test-64bit-commit-ids.py -v
+	cd test && $(PYTHON) test.py -v
+	cd test && $(PYTHON) test-64bit-commit-ids.py -v
 else	# Linux
-	cd test && LD_LIBRARY_PATH=.. python test.py -v
-	cd test && LD_LIBRARY_PATH=.. python test-64bit-commit-ids.py -v
-endif
+	cd test && LD_LIBRARY_PATH=.. $(PYTHON) test.py -v
+	cd test && LD_LIBRARY_PATH=.. $(PYTHON) test-64bit-commit-ids.py -v
 endif
 
 benchmark: test/benchmark.py
