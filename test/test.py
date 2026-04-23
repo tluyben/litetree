@@ -3301,6 +3301,31 @@ class TestSQLiteBranches(unittest.TestCase):
         conn.close()
 
 
+    def test25_large_values(self):
+        conn = sqlite3.connect('file:test.db?branches=on')
+        c = conn.cursor()
+        c.execute("create table t4(data text)")
+        conn.commit()
+
+        # Test values that require overflow pages (>~4045 bytes for a 4096-byte page)
+        for size in [4100, 10000, 100000]:
+            big = "x" * size
+            c.execute("insert into t4 values (?)", (big,))
+            conn.commit()
+            c.execute("select length(data) from t4 where length(data) = ?", (size,))
+            self.assertEqual(c.fetchone()[0], size)
+
+        # Verify all rows are intact after multiple overflow inserts
+        c.execute("select length(data) from t4 order by length(data)")
+        lengths = [row[0] for row in c.fetchall()]
+        self.assertEqual(lengths, [4100, 10000, 100000])
+
+        # Clean up
+        c.execute("delete from t4")
+        conn.commit()
+        conn.close()
+
+
     @classmethod
     def tearDownClass(self):
         delete_file("test.db")
