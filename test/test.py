@@ -11,10 +11,10 @@ if platform.system() == "Darwin":
 else:
     import sqlite3
 
-sqlite_version = "3.27.2"
+sqlite_version = "3.53.0"
 
 if sqlite3.sqlite_version != sqlite_version:
-    print "wrong SQLite version. expected: " + sqlite_version + " found: " + sqlite3.sqlite_version
+    print("wrong SQLite version. expected: " + sqlite_version + " found: " + sqlite3.sqlite_version)
     import sys
     sys.exit(1)
 
@@ -3181,6 +3181,124 @@ class TestSQLiteBranches(unittest.TestCase):
 
         conn1.close()
         conn2.close()
+
+
+    def test23_returning_clause(self):
+        delete_file("test.db")
+        delete_file("test.db-lock")
+
+        conn = sqlite3.connect('file:test.db?branches=on')
+        c = conn.cursor()
+
+        c.execute("create table items(id integer primary key, name text, value integer)")
+        conn.commit()
+
+        # INSERT ... RETURNING
+        c.execute("insert into items(name, value) values ('alpha', 10) returning id, name")
+        row = c.fetchone()
+        self.assertEqual(row[1], "alpha")
+        inserted_id = row[0]
+        conn.commit()
+
+        c.execute("insert into items(name, value) values ('beta', 20), ('gamma', 30) returning name, value")
+        rows = c.fetchall()
+        self.assertEqual(len(rows), 2)
+        self.assertIn(("beta", 20), rows)
+        self.assertIn(("gamma", 30), rows)
+        conn.commit()
+
+        # UPDATE ... RETURNING
+        c.execute("update items set value = value * 2 where name = 'alpha' returning id, name, value")
+        row = c.fetchone()
+        self.assertEqual(row[0], inserted_id)
+        self.assertEqual(row[1], "alpha")
+        self.assertEqual(row[2], 20)
+        conn.commit()
+
+        # DELETE ... RETURNING
+        c.execute("delete from items where name = 'gamma' returning name, value")
+        row = c.fetchone()
+        self.assertEqual(row[0], "gamma")
+        self.assertEqual(row[1], 30)
+        conn.commit()
+
+        c.execute("select name, value from items order by name")
+        self.assertListEqual(c.fetchall(), [("alpha", 20), ("beta", 20)])
+
+        # RETURNING works across branch switch
+        c.execute("pragma new_branch=ret-test at master.2")
+        c.execute("pragma branch")
+        self.assertEqual(c.fetchone()[0], "ret-test")
+
+        c.execute("insert into items(name, value) values ('branch-item', 99) returning name")
+        row = c.fetchone()
+        self.assertEqual(row[0], "branch-item")
+        conn.commit()
+
+        c.execute("pragma branch=master")
+        c.execute("select name from items order by name")
+        self.assertListEqual(c.fetchall(), [("alpha",), ("beta",)])
+
+        conn.close()
+
+
+    def test24_alter_table_drop_column(self):
+        delete_file("test.db")
+        delete_file("test.db-lock")
+
+        conn = sqlite3.connect('file:test.db?branches=on')
+        c = conn.cursor()
+
+        c.execute("create table t(id integer, name text, extra text, value integer)")
+        conn.commit()
+        c.execute("insert into t values (1, 'Alice', 'x', 100)")
+        c.execute("insert into t values (2, 'Bob', 'y', 200)")
+        conn.commit()
+
+        # DROP COLUMN removes the column from the schema
+        c.execute("alter table t drop column extra")
+        conn.commit()
+
+        c.execute("pragma table_info(t)")
+        cols = [row[1] for row in c.fetchall()]
+        self.assertNotIn("extra", cols)
+        self.assertIn("id", cols)
+        self.assertIn("name", cols)
+        self.assertIn("value", cols)
+
+        # Data is still accessible after column drop
+        c.execute("select id, name, value from t order by id")
+        self.assertListEqual(c.fetchall(), [(1, "Alice", 100), (2, "Bob", 200)])
+
+        # Cannot drop a column that is part of the primary key
+        c.execute("create table t2(id integer primary key, name text)")
+        conn.commit()
+        with self.assertRaises(sqlite3.OperationalError):
+            c.execute("alter table t2 drop column id")
+
+        # DROP COLUMN is branch-isolated
+        c.execute("create table t3(a text, b text, c text)")
+        conn.commit()
+        c.execute("insert into t3 values ('a1', 'b1', 'c1')")
+        conn.commit()
+
+        c.execute("pragma new_branch=drop-test at master.5")
+        c.execute("pragma branch")
+        self.assertEqual(c.fetchone()[0], "drop-test")
+
+        c.execute("alter table t3 drop column c")
+        conn.commit()
+        c.execute("pragma table_info(t3)")
+        cols = [row[1] for row in c.fetchall()]
+        self.assertNotIn("c", cols)
+
+        # On master, column c still exists
+        c.execute("pragma branch=master")
+        c.execute("pragma table_info(t3)")
+        cols = [row[1] for row in c.fetchall()]
+        self.assertIn("c", cols)
+
+        conn.close()
 
 
     @classmethod

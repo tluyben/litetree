@@ -13,10 +13,10 @@ if platform.system() == "Darwin":
 else:
     import sqlite3
 
-sqlite_version = "3.27.2"
+sqlite_version = "3.53.0"
 
 if sqlite3.sqlite_version != sqlite_version:
-    print "wrong SQLite version. expected: " + sqlite_version + " found: " + sqlite3.sqlite_version
+    print("wrong SQLite version. expected: " + sqlite_version + " found: " + sqlite3.sqlite_version)
     import sys
     sys.exit(1)
 
@@ -91,35 +91,35 @@ class Test64bitCommitIds(unittest.TestCase):
 
         with env.begin(buffers=True) as txn:
 
-            value = txn.get('last_branch_id')
+            value = txn.get(b'last_branch_id')
             num_branches = varint.decode(value)[0]
             self.assertEqual(num_branches, 2)
 
             for branch_id in range(1, num_branches + 1):
-                pages_db.append(env.open_db('b' + str(branch_id) + '-pages'))
-                maxpg_db.append(env.open_db('b' + str(branch_id) + '-maxpage'))
+                pages_db.append(env.open_db(('b' + str(branch_id) + '-pages').encode()))
+                maxpg_db.append(env.open_db(('b' + str(branch_id) + '-maxpage').encode()))
                 self.assertEqual(len(pages_db) - 1, branch_id)
                 self.assertEqual(len(maxpg_db) - 1, branch_id)
 
         with env.begin(write=True, buffers=True) as txn:
 
-            value = txn.get('b1.name')
+            value = txn.get(b'b1.name')
             self.assertEqual(bytes(value).decode("utf-8"), "master\x00")
 
-            value = txn.get('b2.name')
+            value = txn.get(b'b2.name')
             self.assertEqual(bytes(value).decode("utf-8"), "test\x00")
 
             for branch_id in range(1, num_branches + 1):
                 prefix = 'b' + str(branch_id)
 
-                key = prefix + '.last_commit'
+                key = (prefix + '.last_commit').encode()
                 value = txn.get(key)
                 last_commit = varint.decode(value)[0]
                 last_commit += v64bit_increment
                 value = varint.encode(last_commit)
                 txn.put(key, value)
 
-                key = prefix + '.source_commit'
+                key = (prefix + '.source_commit').encode()
                 value = txn.get(key)
                 source_commit = varint.decode(value)[0]
                 if source_commit > 0:
