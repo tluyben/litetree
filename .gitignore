@@ -1,0 +1,20 @@
+# Build outputs
+*.o
+*.so
+*.so.*
+*.dylib
+*.dll
+*.lib
+sqlite3
+
+# LMDB test/crash databases
+*.db
+*.db-lock
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# local dependencies (not committed)
+local-deps/
