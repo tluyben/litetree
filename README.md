@@ -99,7 +99,7 @@ PRAGMA branch=master.2
 
 At this point the table `t1` has a single row and if we do a SELECT it will return just `first`.
 
-We cannot write to the database when we are in a defined commit, writing is only possible at the head of each branch. If you want to make modifications to some previous commit you must create a new branch that starts at that commit.
+We cannot write to the database when we are in a defined commit, writing is only possible at the head of each branch. If you want to make modifications to some previous commit you must create a new branch that starts at that commit. Attempting to commit while on a historical commit returns an "access permission denied" error.
 
 It is also possible to truncate a branch at a specific commit, rename a branch, delete it and retrieve branch info.
 
@@ -129,14 +129,16 @@ It is also possible to truncate a branch at a specific commit, rename a branch, 
 	```
 	PRAGMA del_branch(<name>)
 	```
-- Renaming a branch:
+- Renaming a branch (child branches update their source reference automatically):
 	```
 	PRAGMA rename_branch <old_name> <new_name>
 	```
-- Truncating a branch at a specific commit:
+	Returns an error if `<new_name>` already exists.
+- Truncating a branch at a specific commit (removes all commits after `<commit>`):
 	```
 	PRAGMA branch_truncate(<name>.<commit>)
 	```
+	Returns an error if `<commit>` is beyond the branch head or if a child branch depends on a commit that would be removed.
 - Displaying the tree structure:
 	```
 	PRAGMA branch_tree

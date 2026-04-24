@@ -125,7 +125,9 @@ endif
 clean:
 	rm -f *.o $(LIBRARY) $(LIBNICK1) $(LIBNICK2) $(LIBNICK3) $(LIBNICK4) $(SSHELL)
 
-test: test/test.py test/test-64bit-commit-ids.py test/varint.py
+test: test/test.py test/test-64bit-commit-ids.py test/varint.py \
+      test/test_overflow.py test/test_isolation.py test/test_merge.py \
+      test/test_compat.py test/test_errors.py
 ifeq ($(OS),Windows_NT)
 ifeq ($(PY_HOME),)
 	@echo "PY_HOME is not set"
@@ -135,6 +137,11 @@ else
 	cp $(LMDBPATH)/lmdb.dll $(PY_HOME)/DLLs/lmdb.dll
 	cd test && $(PYTHON) test.py -v
 	cd test && $(PYTHON) test-64bit-commit-ids.py -v
+	cd test && $(PYTHON) test_overflow.py -v
+	cd test && $(PYTHON) test_isolation.py -v
+	cd test && $(PYTHON) test_merge.py -v
+	cd test && $(PYTHON) test_compat.py -v
+	cd test && $(PYTHON) test_errors.py -v
 endif
 else ifeq ($(OS),OSX)
 ifneq ($(shell $(PYTHON) -c "import pysqlite2.dbapi2" 2> /dev/null; echo $$?),0)
@@ -149,9 +156,19 @@ endif
 endif
 	cd test && $(PYTHON) test.py -v
 	cd test && $(PYTHON) test-64bit-commit-ids.py -v
+	cd test && $(PYTHON) test_overflow.py -v
+	cd test && $(PYTHON) test_isolation.py -v
+	cd test && $(PYTHON) test_merge.py -v
+	cd test && $(PYTHON) test_compat.py -v
+	cd test && $(PYTHON) test_errors.py -v
 else	# Linux
 	cd test && LD_LIBRARY_PATH=.. $(PYTHON) test.py -v
 	cd test && LD_LIBRARY_PATH=.. $(PYTHON) test-64bit-commit-ids.py -v
+	cd test && LD_LIBRARY_PATH=.. $(PYTHON) test_overflow.py -v
+	cd test && LD_LIBRARY_PATH=.. $(PYTHON) test_isolation.py -v
+	cd test && LD_LIBRARY_PATH=.. $(PYTHON) test_merge.py -v
+	cd test && LD_LIBRARY_PATH=.. $(PYTHON) test_compat.py -v
+	cd test && LD_LIBRARY_PATH=.. $(PYTHON) test_errors.py -v
 endif
 
 benchmark: test/benchmark.py
